@@ -11,7 +11,7 @@ export default function App(){
   return (
     <div className="app-root">
       <header className="topbar">
-        <h1>Brick Breaker (React + Canvas)</h1>
+        <h1>Bibi blaster</h1>
       </header>
 
       <main className="main-area">
