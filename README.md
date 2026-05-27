@@ -34,3 +34,16 @@ Files to explore
 
 This is a compact example focusing on the requested mechanics. You can extend it with assets, audio, polish, tests and more advanced collision/physics as needed.
 
+## GitHub Pages deploy
+
+The project now uses GitHub Actions to deploy to GitHub Pages.
+
+### Checklist
+1. Push the project to GitHub.
+2. Go to **Settings → Pages** and set the source to **GitHub Actions**.
+3. Push to `main`, or run the workflow manually from the Actions tab.
+
+### Notes
+- The build uses a relative Vite base path (`./`), which avoids the common white-screen problem on GitHub Pages.
+- If you still see a blank page, open the browser console and check for a 404 or runtime error.
+

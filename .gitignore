@@ -19,16 +19,12 @@ pnpm-debug.log*
 .env
 .env.*
 
-# Config files
-*.config.*
-vite.config.*
-tsconfig*.json
+# Config files and manifests should be committed
 
-# Package manifest / lock files
-
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# Lockfiles can be committed for reproducible installs
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
 # Misc
 .DS_Store
