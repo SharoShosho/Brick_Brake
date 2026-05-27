@@ -36,7 +36,9 @@ This is a compact example focusing on the requested mechanics. You can extend it
 
 ## GitHub Pages deploy
 
-The project now uses GitHub Actions to deploy to GitHub Pages.
+You can deploy in two ways:
+
+### Option A: GitHub Actions (recommended)
 
 ### Checklist
 1. Push the project to GitHub.
@@ -46,4 +48,14 @@ The project now uses GitHub Actions to deploy to GitHub Pages.
 ### Notes
 - The build uses a relative Vite base path (`./`), which avoids the common white-screen problem on GitHub Pages.
 - If you still see a blank page, open the browser console and check for a 404 or runtime error.
+
+### Option B: branch deploy
+If you want to deploy from a branch instead, use:
+
+```powershell
+npm install
+npm run deploy
+```
+
+Then configure **Settings → Pages** to use the `gh-pages` branch as the source.
 
