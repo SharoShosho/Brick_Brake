@@ -20,7 +20,7 @@ function id(prefix='e'){ return prefix + (nextId++) }
 export type Ball = { id:string, x:number, y:number, r:number, vx:number, vy:number, owner?: 'blue'|'pink'|'team', served?: boolean }
 export type Paddle = { id:string, x:number, y:number, w:number, h:number, color: string, player: 'blue'|'pink'|'both' }
 export type Brick = { id:string, x:number, y:number, w:number, h:number, hp:number, maxHp:number }
-export type PowerupKind = 'EXPAND'|'SHRINK'|'SLOW'|'FAST'|'MULTIBALL'|'EXTRA_LIFE'
+export type PowerupKind = 'EXPAND'|'SHRINK'|'SLOW'|'FAST'|'MULTIBALL'|'EXTRA_LIFE'|'SABOTAGE'
 export type Powerup = { id:string, x:number, y:number, w:number, h:number, kind:PowerupKind, vy:number }
 
 // HUD snapshot type
@@ -350,7 +350,7 @@ export class GameEngine{
           // damage brick
           br.hp -= 1
           if(br.hp <= 0){
-            // possibly drop powerup
+            // possibly drop powerups
             this.maybeDropPowerup(br)
             // remove brick
             const idx = this.bricks.indexOf(br)
@@ -412,6 +412,8 @@ export class GameEngine{
       // level cleared
       this.level += 1
       // difficulty scaling applied implicitly because formulas use level
+      // generate new harder level
+      this.generateLevel()
       // reset balls per mode
       this.resetBallsForMode()
       // clear powerups
@@ -472,6 +474,8 @@ export class GameEngine{
     if(Math.random() < chance){
       // pick random powerup
       const kinds: PowerupKind[] = ['EXPAND','SHRINK','SLOW','FAST','MULTIBALL','EXTRA_LIFE']
+      // In versus mode, add SABOTAGE powerup
+      if(this.mode === 'versus') kinds.push('SABOTAGE')
       const kind = kinds[Math.floor(Math.random()*kinds.length)]
       const pu:Powerup = { id:id('pu'), x: brick.x + brick.w/2 - 12, y: brick.y + brick.h/2, w:24, h:24, kind, vy: 120 }
       this.powerups.push(pu)
@@ -486,6 +490,14 @@ export class GameEngine{
     } else if(this.mode === 'versus'){
       // paddle effects affect only that player, ball effects affect that player's balls
       const target = paddle.player // 'blue' or 'pink'
+      if(pu.kind === 'SABOTAGE'){
+        // Apply random negative effect to opponent
+        const opponent = (target === 'blue') ? 'pink' : 'blue'
+        const negativeEffects: PowerupKind[] = ['SHRINK', 'FAST']
+        const sabotageKind = negativeEffects[Math.floor(Math.random() * negativeEffects.length)]
+        this.activateEffect(sabotageKind, opponent)
+        return
+      }
       if(pu.kind === 'EXTRA_LIFE'){
         if(target === 'blue') this.blueLives = Math.min(3, this.blueLives + 1)
         if(target === 'pink') this.pinkLives = Math.min(3, this.pinkLives + 1)
@@ -554,7 +566,14 @@ export class GameEngine{
 
     // draw powerups
     for(const pu of this.powerups){
-      ctx.fillStyle = '#ffd700'
+      // Color by type: red = bad, green = good
+      if(pu.kind === 'SABOTAGE'){
+        ctx.fillStyle = '#3366ff' // blue for sabotage (affects opponent)
+      } else if(pu.kind === 'SHRINK' || pu.kind === 'FAST'){
+        ctx.fillStyle = '#ff3333' // red for bad
+      } else {
+        ctx.fillStyle = '#33ff33' // green for good
+      }
       ctx.fillRect(pu.x, pu.y, pu.w, pu.h)
       ctx.fillStyle = '#000'
       ctx.font = '10px sans-serif'
