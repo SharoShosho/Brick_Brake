@@ -12,16 +12,12 @@
 export type ModeId = 'solo' | 'versus' | 'coop'
 
 // Basic vector
-type Vec = { x:number, y:number }
-
-function vec(x=0,y=0):Vec{ return {x,y} }
-
 // IDs
 let nextId = 1
 function id(prefix='e'){ return prefix + (nextId++) }
 
 // Entities
-export type Ball = { id:string, x:number, y:number, r:number, vx:number, vy:number, owner?: 'blue'|'pink'|'team' }
+export type Ball = { id:string, x:number, y:number, r:number, vx:number, vy:number, owner?: 'blue'|'pink'|'team', served?: boolean }
 export type Paddle = { id:string, x:number, y:number, w:number, h:number, color: string, player: 'blue'|'pink'|'both' }
 export type Brick = { id:string, x:number, y:number, w:number, h:number, hp:number, maxHp:number }
 export type PowerupKind = 'EXPAND'|'SHRINK'|'SLOW'|'FAST'|'MULTIBALL'|'EXTRA_LIFE'
@@ -173,25 +169,52 @@ export class GameEngine{
     this.balls = []
     this.powerups = []
     if(this.mode === 'solo'){
-      this.spawnBallOwned('team')
+      this.spawnBallOwned('team', true)
     } else if(this.mode === 'versus'){
-      this.spawnBallOwned('blue')
-      this.spawnBallOwned('pink')
+      // place one served ball on each paddle
+      this.spawnBallOwned('blue', true)
+      this.spawnBallOwned('pink', true)
     } else {
-      this.spawnBallOwned('team')
+      // co-op: single served ball positioned relative to paddles
+      this.spawnBallOwned('team', true)
     }
     // reset paddles
     this.spawnPaddles()
   }
 
-  spawnBallOwned(owner:'blue'|'pink'|'team'){
+  spawnBallOwned(owner:'blue'|'pink'|'team', served = false){
     const speed = this.ballSpeedForLevel(this.level)
-    // upward but slightly angled
-    const angle = (Math.random()*0.8 + 0.3) * Math.PI * -1 // between -1.1pi and -0.3pi i.e. upwards
-    const vx = Math.cos(angle) * speed/100
-    const vy = Math.sin(angle) * speed/100
-    const b:Ball = { id:id('ball'), x:this.width/2, y:this.height - 80, r:8, vx, vy, owner }
+    if(served){
+      // create a ball attached to its paddle (vx/vy = 0) until launch
+      const b:Ball = { id:id('ball'), x:this.width/2, y:this.height - 80, r:8, vx:0, vy:0, owner, served:true }
+      // position will be updated in update() to sit on top of paddle
+      this.balls.push(b)
+      return
+    }
+    // non-served: spawn with upward angled velocity
+    const angle = (Math.random()*0.8 + 0.3) * Math.PI * -1
+    const vx = Math.cos(angle) * speed
+    const vy = Math.sin(angle) * speed
+    const b:Ball = { id:id('ball'), x:this.width/2, y:this.height - 80, r:8, vx, vy, owner, served:false }
     this.balls.push(b)
+  }
+
+  // Launch any balls that are currently in served state.
+  // If `owner` is provided ("blue"/"pink"/"team"), only launch served balls that belong to that owner.
+  launchServe(owner?: 'blue'|'pink'|'team'){
+    const speed = this.ballSpeedForLevel(this.level)
+    for(const b of this.balls){
+      if(!b.served) continue
+      if(owner){
+        if(b.owner !== owner) continue
+      }
+      // determine small random upward angle away from vertical so it's not perfectly straight
+      const angle = (Math.random()*0.6 + 0.2) * Math.PI * -1
+      // use speed in pixels/sec directly
+      b.vx = Math.cos(angle) * speed
+      b.vy = Math.sin(angle) * speed
+      b.served = false
+    }
   }
 
   setPaddleInput(player:'blue'|'pink', dir:number){
@@ -253,6 +276,18 @@ export class GameEngine{
 
     // move balls
     for(const b of this.balls){
+      // if ball is served, attach to appropriate paddle and skip physics
+      if(b.served){
+        // find paddle for owner or choose central paddle
+        let attach: Paddle | undefined
+        if(b.owner === 'blue' || b.owner === 'pink') attach = this.paddles.find(p=>p.player === b.owner)
+        if(!attach) attach = this.paddles[0]
+        if(attach){
+          b.x = attach.x
+          b.y = attach.y - attach.h/2 - b.r - 2
+        }
+        continue
+      }
       // apply active effects for speed
       let speedFactor = 1
       for(const ef of this.activeEffects){

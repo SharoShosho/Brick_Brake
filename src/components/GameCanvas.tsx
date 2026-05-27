@@ -7,7 +7,7 @@ type Props = {
   onExit?: ()=>void
 }
 
-export default function GameCanvas({mode, showMenu, onExit}: Props){
+export default function GameCanvas({mode, showMenu: _showMenu, onExit: _onExit}: Props){
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const engineRef = useRef<GameEngine | null>(null)
   const [paused, setPaused] = useState(false)
@@ -31,7 +31,20 @@ export default function GameCanvas({mode, showMenu, onExit}: Props){
       if(e.key === 'Escape'){
         setPaused(p=>{ const newp = !p; engine.setPaused(newp); return newp })
       }
-      // controls
+      // Serve controls:
+      if(e.type === 'keydown'){
+        // In Versus mode: Blue uses W, Pink uses ArrowUp
+        if(e.key === 'ArrowUp'){
+          if(engine.mode === 'versus') engine.launchServe('pink')
+          else engine.launchServe()
+        }
+        if(e.key.toLowerCase() === 'w'){
+          if(engine.mode === 'versus') engine.launchServe('blue')
+          else engine.launchServe()
+        }
+      }
+
+      // movement controls
       if(e.key === 'a' || e.key === 'A') engine.setPaddleInput('blue', e.type === 'keydown' ? -1 : 0)
       if(e.key === 'd' || e.key === 'D') engine.setPaddleInput('blue', e.type === 'keydown' ? 1 : 0)
       if(e.key === 'ArrowLeft') engine.setPaddleInput('pink', e.type === 'keydown' ? -1 : 0)
@@ -55,7 +68,7 @@ export default function GameCanvas({mode, showMenu, onExit}: Props){
 
   // read HUD dataset and parse (simple reactive): render small overlay
   const hudRaw = hudRef.current?.dataset.hud
-  let hud: any = null
+  let hud: any
   try{ hud = hudRaw ? JSON.parse(hudRaw) : null }catch(e){ hud = null }
 
   return (

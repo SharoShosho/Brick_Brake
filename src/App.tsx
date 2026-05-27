@@ -33,7 +33,9 @@ export default function App(){
         </div>
 
         <div className="game-area">
-          <GameCanvas mode={mode ?? 'solo'} showMenu={showMenu} onExit={() => setShowMenu(true)} />
+          {!showMenu && mode && (
+            <GameCanvas mode={mode} showMenu={showMenu} onExit={() => setShowMenu(true)} />
+          )}
         </div>
 
       </main>
