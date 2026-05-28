@@ -114,7 +114,7 @@ export class GameEngine{
     return Math.min(650, 320 * Math.pow(1.05, level-1))
   }
   maxHpForLevel(level:number){
-    return Math.min(3, 1 + Math.floor((level-1)/3))
+    return Math.min(3, 1 + Math.floor((level-1)/2))
   }
   rowsForLevel(level:number){
     const r = 6 + Math.floor((level-1)/2)
@@ -540,8 +540,14 @@ export class GameEngine{
     ctx.clearRect(0,0,this.width,this.height)
     // draw bricks
     for(const br of this.bricks){
-      const t = br.hp / br.maxHp
-      ctx.fillStyle = `hsl(${Math.floor(120*t)},60%,50%)`
+      // Color by mode and HP: different shades (light -> dark based on HP)
+      const lightnesses = [60, 50, 40] // hp=1: light, hp=2: medium, hp=3: dark
+      const lightness = lightnesses[br.hp - 1] || 60
+      // Hue by mode: red for coop, blue for versus, green for solo
+      let hue = 120 // default: green for solo
+      if(this.mode === 'versus') hue = 200 // blue for versus
+      else if(this.mode === 'coop') hue = 0 // red for coop
+      ctx.fillStyle = `hsl(${hue},100%,${lightness}%)`
       ctx.fillRect(br.x, br.y, br.w, br.h)
       ctx.strokeStyle = '#222'
       ctx.strokeRect(br.x, br.y, br.w, br.h)
