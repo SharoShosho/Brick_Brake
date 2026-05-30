@@ -32,6 +32,14 @@ type OverlayState = {
   subtitle?: string
 }
 
+export function formatSurvivalTime(totalSeconds: number){
+  const seconds = Math.max(0, Math.floor(totalSeconds))
+  if(seconds < 60) return `${seconds} sec`
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins} min and ${secs} sec`
+}
+
 export class GameEngine{
   canvas: HTMLCanvasElement
   ctx: CanvasRenderingContext2D
@@ -263,7 +271,7 @@ export class GameEngine{
     } else if(this.mode === 'versus'){
       this.endState = { title: winner === 'blue' ? 'Blue won' : 'Pink won' }
     } else {
-      this.endState = { title: 'Game Over', subtitle: `Survival Time: ${Math.floor(this.survivalTime)}s` }
+      this.endState = { title: 'Game Over', subtitle: `Survival Time: ${formatSurvivalTime(this.survivalTime)}` }
       try{ localStorage.setItem('bb_best_time', String(this.bestTime)) }catch(e){}
     }
     this.publishState()
@@ -630,7 +638,7 @@ export class GameEngine{
     ctx.font = '14px sans-serif'
     if(this.mode === 'solo') ctx.fillText(`Lives: ${this.soloLives}  Level: ${this.level}`, 12, this.height - 24)
     if(this.mode === 'versus') ctx.fillText(`Blue: ${this.blueLives} Pink: ${this.pinkLives} Level: ${this.level}`, 12, this.height - 24)
-    if(this.mode === 'coop') ctx.fillText(`Team: ${this.teamLives} Level: ${this.level} Time: ${Math.floor(this.survivalTime)}s Best: ${Math.floor(this.bestTime)}s`, 12, this.height - 24)
+    if(this.mode === 'coop') ctx.fillText(`Team: ${this.teamLives} Level: ${this.level} Time: ${formatSurvivalTime(this.survivalTime)} Best: ${formatSurvivalTime(this.bestTime)}`, 12, this.height - 24)
 
     // if paused
     if(this.paused && this.gamePhase === 'paused'){

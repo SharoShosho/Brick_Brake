@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react'
-import { GameEngine, ModeId } from '../engine/GameEngine'
+import { GameEngine, ModeId, formatSurvivalTime } from '../engine/GameEngine'
 
 type Props = {
   mode: ModeId
@@ -97,7 +97,7 @@ export default function GameCanvas({mode, showMenu: _showMenu, onExit}: Props){
               <div>Mode: {hud.mode}</div>
               {hud.mode === 'solo' && <div>Lives: {hud.lives} | Level: {hud.level}</div>}
               {hud.mode === 'versus' && <div>Blue: {hud.blueLives} | Pink: {hud.pinkLives} | Level: {hud.level}</div>}
-              {hud.mode === 'coop' && <div>TeamLives: {hud.teamLives} | Level: {hud.level} | Time: {Math.floor(hud.survivalTime)}s</div>}
+              {hud.mode === 'coop' && <div>TeamLives: {hud.teamLives} | Level: {hud.level} | Time: {formatSurvivalTime(hud.survivalTime ?? 0)}</div>}
             </div>
           ) : <div>Loading...</div>}
         </div>
