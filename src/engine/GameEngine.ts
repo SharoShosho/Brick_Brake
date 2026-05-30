@@ -25,6 +25,12 @@ export type Powerup = { id:string, x:number, y:number, w:number, h:number, kind:
 
 // HUD snapshot type
 type Hud = { mode: ModeId, lives?:number, blueLives?:number, pinkLives?:number, teamLives?:number, level:number, survivalTime?:number }
+type GamePhase = 'playing' | 'paused' | 'ended'
+type OverlayState = {
+  phase: GamePhase
+  title?: string
+  subtitle?: string
+}
 
 export class GameEngine{
   canvas: HTMLCanvasElement
@@ -50,10 +56,12 @@ export class GameEngine{
 
   // mode & stats
   mode: ModeId = 'solo'
+  gamePhase: GamePhase = 'playing'
   level = 1
   startTime = 0
   survivalTime = 0
   bestTime = 0
+  endState: { title: string, subtitle?: string } | null = null
 
   // lives/pools
   soloLives = 3
@@ -62,7 +70,7 @@ export class GameEngine{
   teamLives = 3
 
   // callbacks
-  onStateChanged: ((s:{hud:Hud})=>void) | null = null
+  onStateChanged: ((s:{hud:Hud, overlay:OverlayState})=>void) | null = null
 
   constructor(canvas: HTMLCanvasElement, mode:ModeId='solo'){
     this.canvas = canvas
@@ -86,6 +94,8 @@ export class GameEngine{
 
   setMode(m:ModeId){
     this.mode = m
+    this.gamePhase = 'playing'
+    this.endState = null
     this.level = 1
     this.soloLives = 3
     this.blueLives = 3
@@ -95,6 +105,23 @@ export class GameEngine{
     this.powerups = []
     this.generateLevel()
     this.resetBallsForMode()
+    this.publishState()
+  }
+
+  resetMatch(){
+    this.gamePhase = 'playing'
+    this.endState = null
+    this.level = 1
+    this.soloLives = 3
+    this.blueLives = 3
+    this.pinkLives = 3
+    this.teamLives = 3
+    this.survivalTime = 0
+    this.activeEffects = []
+    this.powerups = []
+    this.generateLevel()
+    this.resetBallsForMode()
+    this.publishState()
   }
 
   spawnPaddles(){
@@ -222,7 +249,25 @@ export class GameEngine{
     if(player === 'pink') this.input.pinkDir = dir
   }
 
-  setPaused(p:boolean){ this.paused = p }
+  setPaused(p:boolean){
+    if(this.gamePhase !== 'playing') return
+    this.paused = p
+    this.publishState()
+  }
+
+  endMatch(winner?: 'blue'|'pink'){
+    this.gamePhase = 'ended'
+    this.paused = false
+    if(this.mode === 'solo'){
+      this.endState = { title: 'Game Over' }
+    } else if(this.mode === 'versus'){
+      this.endState = { title: winner === 'blue' ? 'Blue won' : 'Pink won' }
+    } else {
+      this.endState = { title: 'Game Over', subtitle: `Survival Time: ${Math.floor(this.survivalTime)}s` }
+      try{ localStorage.setItem('bb_best_time', String(this.bestTime)) }catch(e){}
+    }
+    this.publishState()
+  }
 
   start(){
     if(this.running) return
@@ -256,6 +301,7 @@ export class GameEngine{
   }
 
   update(dt:number){
+    if(this.gamePhase !== 'playing') return
     // update survival timer
     if(this.mode === 'coop'){
       this.survivalTime += dt
@@ -352,7 +398,7 @@ export class GameEngine{
           if(br.hp <= 0){
             // possibly drop powerups
             this.maybeDropPowerup(br)
-            // remove brick
+              // remove brick
             const idx = this.bricks.indexOf(br)
             if(idx >= 0) this.bricks.splice(idx,1)
           }
@@ -439,33 +485,24 @@ export class GameEngine{
           this.spawnBallOwned('team')
         } else {
           // game over
-          this.onGameOver()
+          this.endMatch()
         }
       }
     } else if(this.mode === 'versus'){
       if(ball.owner === 'blue'){
         const anyBlue = this.balls.some(b=>b.owner === 'blue')
-        if(!anyBlue){ this.blueLives -= 1; if(this.blueLives > 0) this.spawnBallOwned('blue'); else this.onGameOver() }
+        if(!anyBlue){ this.blueLives -= 1; if(this.blueLives > 0) this.spawnBallOwned('blue'); else this.endMatch('pink') }
       }
       if(ball.owner === 'pink'){
         const anyPink = this.balls.some(b=>b.owner === 'pink')
-        if(!anyPink){ this.pinkLives -= 1; if(this.pinkLives > 0) this.spawnBallOwned('pink'); else this.onGameOver() }
+        if(!anyPink){ this.pinkLives -= 1; if(this.pinkLives > 0) this.spawnBallOwned('pink'); else this.endMatch('blue') }
       }
     } else if(this.mode === 'coop'){
       if(this.balls.length === 0){
         this.teamLives -= 1
         if(this.teamLives > 0){ this.spawnBallOwned('team') }
-        else this.onGameOver()
+        else this.endMatch()
       }
-    }
-  }
-
-  onGameOver(){
-    // mark paused and stop progression
-    this.paused = true
-    // if coop save best
-    if(this.mode === 'coop'){
-      try{ localStorage.setItem('bb_best_time', String(this.bestTime)) }catch(e){}
     }
   }
 
@@ -596,7 +633,7 @@ export class GameEngine{
     if(this.mode === 'coop') ctx.fillText(`Team: ${this.teamLives} Level: ${this.level} Time: ${Math.floor(this.survivalTime)}s Best: ${Math.floor(this.bestTime)}s`, 12, this.height - 24)
 
     // if paused
-    if(this.paused){
+    if(this.paused && this.gamePhase === 'paused'){
       ctx.fillStyle = 'rgba(0,0,0,0.6)'
       ctx.fillRect(0,0,this.width,this.height)
       ctx.fillStyle = '#fff'
@@ -610,7 +647,16 @@ export class GameEngine{
     if(this.mode === 'solo') hud.lives = this.soloLives
     if(this.mode === 'versus'){ hud.blueLives = this.blueLives; hud.pinkLives = this.pinkLives }
     if(this.mode === 'coop'){ hud.teamLives = this.teamLives; hud.survivalTime = this.survivalTime }
-    if(this.onStateChanged) this.onStateChanged({ hud })
+    const overlay: OverlayState = this.gamePhase === 'ended'
+      ? {
+          phase: 'ended',
+          title: this.endState?.title,
+          subtitle: this.endState?.subtitle,
+        }
+      : this.paused
+        ? { phase: 'paused', title: 'Paused' }
+        : { phase: 'playing' }
+    if(this.onStateChanged) this.onStateChanged({ hud, overlay })
   }
 }
 

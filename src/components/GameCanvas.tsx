@@ -7,21 +7,33 @@ type Props = {
   onExit?: ()=>void
 }
 
-export default function GameCanvas({mode, showMenu: _showMenu, onExit: _onExit}: Props){
+export default function GameCanvas({mode, showMenu: _showMenu, onExit}: Props){
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const engineRef = useRef<GameEngine | null>(null)
   const [paused, setPaused] = useState(false)
+  const [overlay, setOverlay] = useState<{ phase: 'playing'|'paused'|'ended', title?: string, subtitle?: string }>({ phase: 'playing' })
   const hudRef = useRef<HTMLDivElement | null>(null)
+  const overlayRef = useRef(overlay)
 
   useEffect(()=>{
     const canvas = canvasRef.current!
     const engine = new GameEngine(canvas, mode)
     engineRef.current = engine
 
-    engine.onStateChanged = (s: { hud: any })=>{
+    engine.onStateChanged = (s: { hud: any, overlay: { phase: 'playing'|'paused'|'ended', title?: string, subtitle?: string } })=>{
       // expose HUD via state callback to React-controlled overlay
       if(hudRef.current){
         hudRef.current.dataset.hud = JSON.stringify(s.hud)
+      }
+      const nextOverlay = s.overlay
+      const prevOverlay = overlayRef.current
+      if(
+        prevOverlay.phase !== nextOverlay.phase ||
+        prevOverlay.title !== nextOverlay.title ||
+        prevOverlay.subtitle !== nextOverlay.subtitle
+      ){
+        overlayRef.current = nextOverlay
+        setOverlay(nextOverlay)
       }
     }
 
@@ -63,6 +75,9 @@ export default function GameCanvas({mode, showMenu: _showMenu, onExit: _onExit}:
   useEffect(()=>{
     if(engineRef.current){
       engineRef.current.setMode(mode)
+      setPaused(false)
+      setOverlay({ phase: 'playing' })
+      overlayRef.current = { phase: 'playing' }
     }
   }, [mode])
 
@@ -89,11 +104,24 @@ export default function GameCanvas({mode, showMenu: _showMenu, onExit: _onExit}:
 
         <div className="controls">A/D = blue | ←/→ = pink</div>
 
-        {paused && (
+        {overlay.phase === 'paused' && paused && (
           <div className="paused">
             <div className="box">
               <div>Paused</div>
               <button onClick={()=>{ setPaused(false); engineRef.current?.setPaused(false) }}>Resume</button>
+            </div>
+          </div>
+        )}
+
+        {overlay.phase === 'ended' && (
+          <div className="paused">
+            <div className="box endscreen">
+              <div className="endtitle">{overlay.title ?? 'Game Over'}</div>
+              {overlay.subtitle && <div className="endsubtitle">{overlay.subtitle}</div>}
+              <div className="endbuttons">
+                <button onClick={()=>{ engineRef.current?.resetMatch(); setPaused(false); }}>Restart</button>
+                <button onClick={()=>{ onExit?.(); }}>Return to Menu</button>
+              </div>
             </div>
           </div>
         )}
